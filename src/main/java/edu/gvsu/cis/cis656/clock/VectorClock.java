@@ -3,6 +3,8 @@ package edu.gvsu.cis.cis656.clock;
 import java.util.Hashtable;
 import java.util.Map;
 
+import org.json.JSONObject;
+
 public class VectorClock implements Clock {
 
     // suggested data structure ...
@@ -36,26 +38,46 @@ public class VectorClock implements Clock {
 
     @Override
     public boolean happenedBefore(Clock other) {
-        return false;
+        boolean hasHappenedBefore = true;
+        for(String key:other.getClock().keySet()){
+    		int pid = Integer.parseInt(key);
+    		if(other.getTime(pid) < this.getTime(pid) ){
+    			hasHappenedBefore = false;
+    		}
+    	}
+    	return hasHappenedBefore;
     }
 
     public String toString() {
-        // TODO: you implement
-        return null;
+    	JSONObject obj = new JSONObject(clock);
+        return obj.toString();
     }
 
     @Override
     public void setClockFromString(String clock) {
-
+    	//"{\"0\":2,\"1\":0,\"2\":0 }",
+    	String prevClock = toString();
+    	boolean isValidClock = true;
+    	
+    	this.clock.clear();
+    	JSONObject obj = new JSONObject(clock);
+    	for(String key:obj.keySet()){
+    		if(obj.get(key) instanceof Integer){
+    			addProcess(Integer.parseInt(key), obj.getInt(key));
+    		}else{
+    			isValidClock = false;
+    			break;
+    		}
+    	}
+    	if(!isValidClock){
+    		setClockFromString(prevClock);
+    	}
     }
 
     @Override
     public int getTime(int p) {
         String key = String.valueOf(p);
-    	if(clock.containsKey(key)){
-        	return clock.get(key);
-        }
-    	return 0;
+        return clock.getOrDefault(key, 0);
     }
 
     @Override
