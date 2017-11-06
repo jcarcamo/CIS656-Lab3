@@ -50,18 +50,15 @@ public class ChatClient {
 	public boolean registerClient() {
 		boolean registerResult = false;
 		
-		Message registerMessage = new Message(MessageTypes.REGISTER, username, 0, null,"");
-		Message.sendMessage(registerMessage, socket, address, port);
+		Message registerMessage = new Message(MessageTypes.REGISTER, this.username, 0, null,"");
+		Message.sendMessage(registerMessage, this.socket, this.address, this.port);
 		
 		Message registerResponseMessage = Message.receiveMessage(socket);
         
         if(registerResponseMessage.type != MessageTypes.ERROR){
         	this.myPid = registerResponseMessage.pid;
-            System.out.println("Register Response: " + registerResponseMessage.toString());
-            
             this.myClock = new VectorClock();
             this.myClock.addProcess(myPid, 0);
-            this.myClock.update(registerResponseMessage.ts);
             
             this.messageQueue = new PriorityQueue<>(new MessageComparator());
             
@@ -75,7 +72,8 @@ public class ChatClient {
 	public void startClient(String address, int port) {
 		initializeNetwork(address, port);
 		if(!registerClient()){
-        	System.exit(-1);
+        	System.out.println("Username " + this.username +" already in use");
+			System.exit(-1);
         }
 		System.out.println("Chat App for " + username);
 		
@@ -83,10 +81,10 @@ public class ChatClient {
 		listener.start();
 		
 		BufferedReader is = new BufferedReader(new InputStreamReader(System.in));
-		String readLine;
-		Message outMessage = new Message(MessageTypes.CHAT_MSG, username, myPid, myClock, "");
+		String readLine = "";
+		Message outMessage = new Message(MessageTypes.CHAT_MSG, this.username, this.myPid, this.myClock, readLine);
 		while(true) {
-    		System.out.print("Enter your message or type 'exit' to quit: ");	
+    		System.out.println("Type your message or type 'exit' to quit: ");	
             try {
             	readLine = is.readLine();
             	switch(readLine){
@@ -96,19 +94,15 @@ public class ChatClient {
                 		listener.interrupt();
                 		break;
                 	default:
-                		this.messageOrder = this.messageOrder+1;
+                		this.messageOrder++;
                 		outMessage.message = readLine;
                 		outMessage.tag = this.messageOrder;
-//                		synchronized (this.myClock) {
-                			myClock.tick(myPid);
-//                		}
+            			this.myClock.tick(myPid);
         				Message.sendMessage(outMessage, this.socket, this.address, this.port);
-        				System.out.println("DEBUG SentMessages:" + outMessage.tag);
         				break;
             	}
                 					
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}

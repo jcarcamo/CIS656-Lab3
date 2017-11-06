@@ -8,7 +8,7 @@ import edu.gvsu.cis.cis656.message.MessageTypes;
 import edu.gvsu.cis.cis656.queue.PriorityQueue;
 
 public class Listener implements Runnable{
-	private static boolean DEBUG = true;
+	private static boolean DEBUG = false;
 	private VectorClock sharedClock;
 	private PriorityQueue<Message> sharedMessageQueue;
 	private DatagramSocket listener;
@@ -18,6 +18,10 @@ public class Listener implements Runnable{
 		this.listener = listener;
 		this.sharedClock = sharedClock;
 		this.sharedMessageQueue = sharedMessageQueue;
+		if(DEBUG) {
+			System.out.println("\n\n\n\tInitial clock:");
+			System.out.println("\tMy Clock:" + this.sharedClock.toString());
+		}
 	}
 	@Override
 	public void run() {
@@ -25,30 +29,32 @@ public class Listener implements Runnable{
 		Message inMessage;
 		Message topMessage;
 		while(!Thread.currentThread().isInterrupted()) {
-			inMessage = Message.receiveMessage(listener);
+			inMessage = Message.receiveMessage(this.listener);
 			if(inMessage.type == MessageTypes.CHAT_MSG) {
-				if(DEBUG)
-					System.out.println("\nDEBUG: Sender " + inMessage.sender + " message # " + inMessage.tag);
-//				synchronized (this.sharedMessageQueue) {
-					sharedMessageQueue.add(inMessage);
-					topMessage = sharedMessageQueue.peek();
-//				}
+				this.sharedMessageQueue.add(inMessage);
+				topMessage = this.sharedMessageQueue.peek();
 				while(topMessage != null) {
 					c_q = topMessage.ts.getTime(topMessage.pid);
-					c_p = sharedClock.getTime(topMessage.pid);
-					if(DEBUG)
-						System.out.println("c_q: " + c_q + " c_p+1:" + (c_p+1));
-					if((c_q == c_p + 1) &&  sharedClock.happenedBefore(topMessage.ts)) {
-						if(DEBUG)
-							System.out.println("\nDEBUG: Print Order Sender " + topMessage.sender + " message #" + topMessage.tag);
+					c_p = this.sharedClock.getTime(topMessage.pid);
+					VectorClock comparissonClock = new VectorClock();
+					comparissonClock.setClock(this.sharedClock);
+					comparissonClock.addProcess(topMessage.pid, c_p +1);
+					
+					if(DEBUG) {
+						System.out.println("\n\n\n\tMy Details:");
+						System.out.println("\tMy Clock:" + this.sharedClock.toString());
+						System.out.println("\tTop Message Details:");
+						System.out.println("\tSender: " + topMessage.sender + " Clock:" + topMessage.ts.toString());
+						System.out.println("\tCondition 1:");
+						System.out.println("\tc_q: " + c_q + " c_p+1:" + (c_p+1));
+						System.out.println("\tCondition 2:");
+						System.out.println("\tHappenedBefore? " + topMessage.ts.happenedBefore(comparissonClock)+"\n\n\n");
+					}
+					if((c_q == c_p + 1) &&  topMessage.ts.happenedBefore(comparissonClock)) {
 						System.out.println(topMessage.sender + " says: " + topMessage.message);
-//						synchronized (this.sharedClock) {
-							this.sharedClock.update(topMessage.ts);
-//						}
-//						synchronized (this.sharedMessageQueue) {
-							sharedMessageQueue.remove(topMessage);
-							topMessage = sharedMessageQueue.peek();
-//						}
+						this.sharedClock.update(topMessage.ts);
+						this.sharedMessageQueue.remove(topMessage);
+						topMessage = this.sharedMessageQueue.peek();
 						
 					}else{
 						topMessage = null;
